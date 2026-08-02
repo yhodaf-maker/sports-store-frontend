@@ -1,0 +1,65 @@
+name: Pull Request CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Quality and Security Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run automated tests
+        run: npm test
+
+      - name: Scan pull request commits with Gitleaks
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            zricethezav/gitleaks:v8.24.3 \
+            git /repo --log-opts="$BASE_SHA..$HEAD_SHA" --redact --verbose
+
+      - name: Scan Dockerfile and deployment manifests with Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: dockerfile,kubernetes,helm
+          soft_fail: false
+
+      - name: Build frontend image locally
+        run: docker build --tag sports-store-frontend:pr .
+
+      - name: Scan frontend image with Trivy
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: sports-store-frontend:pr
+          format: table
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
