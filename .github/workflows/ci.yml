@@ -1,4 +1,4 @@
-name: Pull Request CI
+name: Frontend PR Quality and Security
 
 on:
   pull_request:
@@ -8,7 +8,46 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: pr-validation-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
+  branch-name:
+    name: Branch name validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate branch name
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          if [[ ! "$BRANCH_NAME" =~ ^(feature|bugfix|hotfix)/[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+            printf 'Invalid branch name: %s\n' "$BRANCH_NAME"
+            printf 'Use feature/, bugfix/, or hotfix/ followed by a lowercase kebab-case slug.\n'
+            exit 1
+          fi
+
+  build:
+    name: Frontend build validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static assets
+        run: npm run build
+
   validate:
     name: Quality and Security Gates
     runs-on: ubuntu-latest
