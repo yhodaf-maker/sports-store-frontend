@@ -33,13 +33,13 @@ jobs:
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_FRONTEND_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_FRONTEND_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Upload to S3
         run: |
-          aws s3 sync dist/ s3://${{ secrets.AWS_FRONTEND_BUCKET_NAME }} --delete
+          aws s3 sync dist/ s3://${{ vars.AWS_FRONTEND_BUCKET_NAME }} --delete
 
       - name: Invalidate CloudFront Cache
         run: |
-          aws cloudfront create-invalidation --distribution-id ${{ secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+          aws cloudfront create-invalidation --distribution-id ${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
