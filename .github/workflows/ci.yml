@@ -133,3 +133,50 @@ jobs:
             --workdir /src \
             "$SEMGREP_IMAGE" \
             semgrep scan --config auto .
+
+  sca:
+    name: Dependency SCA (report only)
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20.19.0
+          cache: npm
+
+      # npm uses exit 1 for findings. A valid audit report is required before
+      # that status is accepted; malformed output and tool failures block CI.
+      - name: Audit all and production dependencies
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/dependency-sca"
+
+          set +e
+          npm audit --json > "$RUNNER_TEMP/dependency-sca/npm-audit-all.json"
+          all_status=$?
+          set -e
+          node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(!d.metadata?.vulnerabilities || !d.vulnerabilities) throw new Error("invalid npm audit report"); console.log(`all dependencies: ${d.metadata.vulnerabilities.total} known vulnerabilities`); Object.entries(d.vulnerabilities).forEach(([name,v]) => console.log(`  ${name}: ${v.severity}`))' "$RUNNER_TEMP/dependency-sca/npm-audit-all.json"
+          case "$all_status" in
+            0) ;;
+            1) echo "All-dependency vulnerabilities are report-only." ;;
+            *) echo "npm audit execution failed with exit code $all_status" >&2; exit "$all_status" ;;
+          esac
+
+          set +e
+          npm audit --omit=dev --json > "$RUNNER_TEMP/dependency-sca/npm-audit-production.json"
+          production_status=$?
+          set -e
+          node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(!d.metadata?.vulnerabilities || !d.vulnerabilities) throw new Error("invalid npm audit report"); console.log(`production dependencies: ${d.metadata.vulnerabilities.total} known vulnerabilities`); Object.entries(d.vulnerabilities).forEach(([name,v]) => console.log(`  ${name}: ${v.severity}`))' "$RUNNER_TEMP/dependency-sca/npm-audit-production.json"
+          case "$production_status" in
+            0) ;;
+            1) echo "Production-dependency vulnerabilities are report-only." ;;
+            *) echo "npm production audit failed with exit code $production_status" >&2; exit "$production_status" ;;
+          esac

@@ -91,3 +91,21 @@ def test_semgrep_sast_is_pinned_report_only_and_least_privilege():
         assert forbidden not in sast
 
     assert '"Semgrep SAST (report only)"' in ORCHESTRATOR
+
+
+def test_dependency_sca_is_report_only_and_least_privilege():
+    assert "sca:" in CI
+    assert "name: Dependency SCA (report only)" in CI
+    assert "npm audit --json" in CI
+    assert "npm audit --omit=dev --json" in CI
+    assert "invalid npm audit report" in CI
+    assert "persist-credentials: false" in CI
+    assert '"Dependency SCA (report only)"' in ORCHESTRATOR
+    sca = CI.split("\n  sca:", maxsplit=1)[1]
+    assert "contents: read" in sca
+    assert "vulnerabilities are report-only" in sca
+    assert "continue-on-error" not in sca
+    assert "|| true" not in sca
+    assert "secrets." not in sca
+    for forbidden in ("id-token: write", "contents: write", "pull-requests: write", "security-events: write"):
+        assert forbidden not in sca
