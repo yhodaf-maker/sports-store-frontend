@@ -26,6 +26,9 @@ npm run build
 
 Production assets are generated in `dist/`.
 
+Pull requests run the repository's hardened quality and security checks before
+they are eligible for review.
+
 ## PR Diff Review Runner
 
 The provider-independent pipeline and trusted post-CI GitHub Actions integration are documented in [`review_runner/README.md`](review_runner/README.md). Local use accepts a supplied unified patch and uses the mock provider; the trusted reusable workflow retrieves pull request diffs as data and invokes OpenRouter only after deterministic CI succeeds.
