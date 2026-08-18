@@ -12,8 +12,9 @@ def test_workflow_trigger_and_permissions():
     with open(WORKFLOW_PATH, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Trigger branch check (push to main)
-    assert re.search(r'push:\s*\n\s*branches:\s*\n\s*-\s*main', content) is not None, "Workflow must trigger on pushes to main branch"
+    assert re.search(r"^\s*workflow_dispatch:\s*$", content, re.MULTILINE)
+    for forbidden_trigger in ("push", "pull_request", "workflow_run", "schedule"):
+        assert re.search(rf"^\s{{2}}{forbidden_trigger}:\s*$", content, re.MULTILINE) is None
 
     # OIDC Permissions check (id-token: write, contents: read)
     assert re.search(r'id-token:\s*write', content) is not None, "Workflow must request id-token write permissions for OIDC"
